@@ -1,0 +1,63 @@
+version: '3.8'
+
+services:
+  api-gateway:
+    build:
+      context: ..
+      dockerfile: deployments/Dockerfile
+    ports:
+      - "8080:8080"  # HTTP port
+      - "9090:9090"  # gRPC port
+    environment:
+      - ENV=development
+      - HTTP_PORT=8080
+      - GRPC_PORT=9090
+      - AUTH_SERVICE_ADDRESS=auth-service:50051
+      - USER_SERVICE_ADDRESS=user-service:50052
+    depends_on:
+      - auth-service
+      - user-service
+    networks:
+      - gateway-network
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  auth-service:
+    image: auth-service:latest  # You'll need to provide this image
+    ports:
+      - "50051:50051"
+    environment:
+      - ENV=development
+      - PORT=50051
+    networks:
+      - gateway-network
+    healthcheck:
+      test: ["CMD", "grpc_health_probe", "-addr=:50051"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  user-service:
+    image: user-service:latest  # You'll need to provide this image
+    ports:
+      - "50052:50052"
+    environment:
+      - ENV=development
+      - PORT=50052
+    networks:
+      - gateway-network
+    healthcheck:
+      test: ["CMD", "grpc_health_probe", "-addr=:50052"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+networks:
+  gateway-network:
+    driver: bridge
+
+volumes:
+  gateway-data:
